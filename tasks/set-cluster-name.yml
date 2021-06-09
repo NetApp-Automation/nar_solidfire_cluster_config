@@ -1,0 +1,59 @@
+---
+- name: Ensure we wait for the node Management Network Interface to be operational
+  wait_for:
+    connect_timeout: 5
+    delay: 30
+    host: "{{ MIP }}"
+    sleep: 10
+    port: 442
+    state: started
+    timeout: 300
+    msg: "Could not connect to node Management Interface for {{ ansible_hostname }}/MIP: {{ MIP }}"
+
+- name: Ensure we wait for the node Storage Network Interface to be operational
+  wait_for:
+    connect_timeout: 5
+    delay: 30 # Hold off to make sure it has a chance to configure the SIP (shouldn't be necessary)
+    host: "{{ SIP }}"
+    port: 22
+    sleep: 10 # Wait a while between each try
+    state: started
+    timeout: 300 # We'll give it up to 5 minutes
+    msg: "Could not connect to Storage Interface for {{ ansible_hostname }}/SIP: {{ SIP }}"
+
+- name: "Ensure the cluster name is set on target host"
+  uri:
+    url: "https://{{ MIP }}:442/json-rpc/{{ sf_api_version }}"
+    method: POST
+    return_content: true
+    follow_redirects: safe
+    url_username: "{{ sf_cluster_admin_username }}"
+    url_password: "{{ sf_cluster_admin_passwd }}"
+    force_basic_auth: true
+    timeout: "{{ sf_cluster_connect_timeout }}"
+    status_code: 200
+    validate_certs: "{{ sf_validate_certs | bool }}"
+    use_proxy: "{{ sf_use_proxy | bool }}"
+    force: True
+    body_format: json
+    body:
+      method: 'SetClusterConfig'
+      params:
+        cluster:
+          cluster: "{{ sf_cluster_name }}"
+  register: SetClusterConfig
+  failed_when: >
+    SetClusterConfig.json is undefined or
+    (SetClusterConfig.json.error is not undefined and
+    SetClusterConfig.json.error.code is not undefined)
+  no_log: false
+
+- name: Ensure we know the status of the cluster config operation on every node
+  debug:
+    msg: "SetClusterConfig status: {{ SetClusterConfig.json }}"
+  no_log: false
+
+- name: Ensure we end the play if any node failed
+  fail:
+    msg: "Not all nodes are good.. Exiting!"
+  when: ansible_play_hosts_all|length != ansible_play_hosts|length

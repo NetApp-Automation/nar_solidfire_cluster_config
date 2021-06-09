@@ -1,0 +1,52 @@
+---
+- name: Verify all required variables
+  any_errors_fatal: True
+  delegate_to: localhost
+  block:
+    - name: Ensure we fail if any MIP/SIP is not provided
+      fail:
+        msg: "Please provide management and storage IP addresses for each node"
+      when: MIP is undefined or SIP is undefined
+
+    - name: Ensure we fail if any MVIP/SVIP is not provided
+      fail:
+        msg: "Please provide management and storage IP addresses for the cluster"
+      when: MVIP is undefined or SVIP is undefined
+
+    - name: Ensure we fail if the cluster login credetnials is not provided
+      fail:
+        msg: "Please provide sf_cluster_admin_passwd and sf_cluster_admin_username"
+      when: sf_cluster_admin_passwd is undefined or sf_cluster_admin_username is undefined
+
+    - name: Ensure we fail if any of the cluster attributes is not provided
+      fail:
+        msg: "Please provide sf_serialnumber, sf_ordernumber and sf_cluster_name"
+      when: sf_serialnumber is undefined or sf_ordernumber is undefined or sf_cluster_name is undefined
+
+    - name: Ensure we have the host list for the cluster
+      set_fact:
+        sf_cluster_member_list: "{{ sf_cluster_member_list + [hostvars[item].SIP] }}"
+      with_items: "{{ ansible_play_hosts }}"
+
+    - name: Ensure we know the full cluster node list
+      debug:
+        msg: "Node list for {{ sf_cluster_name }}: {{ sf_cluster_member_list }}"
+
+    - name: Ensure all nodes are unique
+      set_fact:
+        sf_cluster_member_list: "{{ sf_cluster_member_list | unique | list }}"
+
+    - name: Ensure we quit if any node failed
+      fail:
+        msg: "Not all nodes are good.. Exiting!"
+      when: ansible_play_hosts_all|length != sf_cluster_member_list|length
+
+    - name: Ensure we fail if we don't have enough nodes to form a cluster
+      fail:
+        msg: "Not enough hosts to create a cluster!"
+      when: sf_cluster_member_list | length < 4
+
+    - name: Ensure we increase timeout value if it's too small
+      set_fact:
+        sf_cluster_connect_timeout: 180
+      when: sf_cluster_connect_timeout < 180

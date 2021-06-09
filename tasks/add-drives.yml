@@ -1,0 +1,73 @@
+---
+- name: Ensure we found available drives for the cluster
+  run_once: true
+  block:
+    - set_fact:
+        sf_available_drives: []
+
+    - name: Get list of drives
+      delegate_to: localhost
+      run_once: true
+      uri:
+        url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
+        method: POST
+        url_username: "{{ sf_cluster_admin_username }}"
+        url_password: "{{ sf_cluster_admin_passwd }}"
+        force_basic_auth: true
+        follow_redirects: safe
+        force: true
+        timeout: "{{ sf_cluster_connect_timeout }}"
+        body:
+          method: 'ListDrives'
+          params: {}
+        validate_certs: "{{ sf_validate_certs }}"
+        body_format: json
+      register: ListDrives
+      no_log: true
+
+    - name: Process the available drive list
+      delegate_to: localhost
+      run_once: true
+      set_fact:
+        sf_available_drives: "{{ sf_available_drives + [{'driveID': drive_entry['driveID'] }] }}"
+      when: ListDrives['json'] is defined and
+        ListDrives['json']['result'] is defined and
+        ListDrives['json']['result']['drives'] and
+        'available' in drive_entry['status']
+      loop_control:
+        loop_var: drive_entry
+      loop: "{{ ListDrives['json']['result']['drives'] }}"
+      no_log: true
+
+    - name: Ensure available drives have been added
+      when: (sf_available_drives | length) > 0
+      delegate_to: localhost
+      run_once: true
+      uri:
+        url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
+        method: POST
+        url_username: "{{ sf_cluster_admin_username }}"
+        url_password: "{{ sf_cluster_admin_passwd }}"
+        force_basic_auth: true
+        follow_redirects: safe
+        force: true
+        timeout: "{{ sf_cluster_connect_timeout }}"
+        validate_certs: "{{ sf_validate_certs }}"
+        body_format: json
+        body:
+          method: 'AddDrives'
+          params:
+            drives: "{{ sf_available_drives }}"
+            forceDuringBinSync: "{{ True | bool }}"
+      register: added_drives
+      no_log: false
+
+    - name: Ensure we fail if adding drives returned error
+      fail:
+        msg: "Error adding drives: {{ added_drives }}"
+      when: (added_drives.json is undefined and sf_available_drives|length > 0) or
+        (added_drives.json is defined and added_drives.json.error is defined and
+        added_drives.json.error.code is defined)
+
+    - set_fact:
+        sf_final_status: "success"
