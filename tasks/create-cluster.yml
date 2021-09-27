@@ -1,6 +1,6 @@
 ---
-- pause:
-    prompt: "Wait for node discovery to finish"
+- name: "Wait for node discovery to finish"
+  pause:
     seconds: 120
   delegate_to: localhost
 
@@ -10,7 +10,7 @@
       run_once: true
       delegate_to: localhost
       block:
-        - name: Ensure cluster is created
+        - name: Call CreateCluster API
           uri:
             url: "https://{{ MIP }}:443/json-rpc/{{ sf_api_version }}"
             method: POST
