@@ -1,5 +1,6 @@
 ---
 galaxy_info:
+  role_name: nar_solidfire_cluster_config
   author: NetApp
   description: Configure per-node cluster settings and form cluster
   company: NetApp

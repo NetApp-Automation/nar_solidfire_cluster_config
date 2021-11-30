@@ -1,5 +1,5 @@
 ---
-- name: Ensure we wait for the node Management Network Interface to be operational
+- name: "Ensure the node Management Network Interface ({{ MIP }}) is operational"
   wait_for:
     connect_timeout: 5
     delay: 30
@@ -10,7 +10,7 @@
     timeout: 300
     msg: "Could not connect to node Management Interface for {{ ansible_hostname }}/MIP: {{ MIP }}"
 
-- name: Ensure we wait for the node Storage Network Interface to be operational
+- name: "Ensure the node Storage Network Interface ({{ SIP }}) is operational"
   wait_for:
     connect_timeout: 5
     delay: 30 # Hold off to make sure it has a chance to configure the SIP (shouldn't be necessary)
@@ -27,8 +27,6 @@
     method: POST
     return_content: true
     follow_redirects: safe
-    url_username: "{{ sf_cluster_admin_username }}"
-    url_password: "{{ sf_cluster_admin_passwd }}"
     force_basic_auth: true
     timeout: "{{ sf_cluster_connect_timeout }}"
     status_code: 200

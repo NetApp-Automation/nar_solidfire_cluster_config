@@ -4,86 +4,82 @@
     seconds: 120
   delegate_to: localhost
 
-- name: Create cluster
+- name: Create clsuter
+  run_once: true
+  delegate_to: localhost
   block:
-    - name: Ensure we've created a cluster for the node(s)
-      run_once: true
-      delegate_to: localhost
-      block:
-        - name: Call CreateCluster API
-          uri:
-            url: "https://{{ MIP }}:443/json-rpc/{{ sf_api_version }}"
-            method: POST
-            url_username: "{{ sf_cluster_admin_username }}"
-            url_password: "{{ sf_cluster_admin_passwd }}"
-            force_basic_auth: true
-            follow_redirects: safe
-            force: true
-            timeout: "{{ sf_cluster_connect_timeout * 2 }}"
-            validate_certs: "{{ sf_validate_certs }}"
-            body_format: json
-            body:
-              method: 'CreateCluster'
-              params:
-                acceptEula: true
-                mvip: "{{ MVIP }}"
-                svip: "{{ SVIP }}"
-                replCount: 2
-                username: "{{ sf_cluster_admin_username }}"
-                password: "{{ sf_cluster_admin_passwd }}"
-                nodes: "{{ sf_cluster_member_list }}"
-                serialNumber: "{{ sf_serialnumber }}"
-                orderNumber: "{{ sf_ordernumber }}"
-          until: 
-            CreateCluster.status == 200
-          retries: 3
-          delay: 10
-          register: CreateCluster
+    - name: Call CreateCluster API
+      uri:
+        url: "https://{{ MIP }}:443/json-rpc/{{ sf_api_version }}"
+        method: POST
+        force_basic_auth: true
+        follow_redirects: safe
+        force: true
+        timeout: "{{ sf_cluster_connect_timeout * 2 }}"
+        validate_certs: "{{ sf_validate_certs }}"
+        body_format: json
+        body:
+          method: 'CreateCluster'
+          params:
+            acceptEula: true
+            mvip: "{{ MVIP }}"
+            svip: "{{ SVIP }}"
+            replCount: 2
+            username: "{{ sf_cluster_admin_username }}"
+            password: "{{ sf_cluster_admin_passwd }}"
+            nodes: "{{ sf_cluster_member_list }}"
+            serialNumber: "{{ sf_serialnumber }}"
+            orderNumber: "{{ sf_ordernumber }}"
+            enableSoftwareEncryptionAtRest: "{{ sf_enable_sw_encryption }}"
+      until:
+        CreateCluster.status == 200
+      retries: 3
+      delay: 10
+      register: CreateCluster
 
-        - name: Ensure we fail if cluster API returned an unexpected error
-          when: >
-            CreateCluster.json is defined and
-            CreateCluster.json.error is defined and
-            CreateCluster.json.error.code is defined and
-            CreateCluster.json.error.code > 390 and
-            CreateCluster.json.error.message is defined and
-            "Cluster already created" not in CreateCluster.json.error.message
-          fail:
-            msg: "Could not create cluster! Msg: {{ CreateCluster.json.error.message }}"
-          no_log: false
+    - name: Ensure we fail if cluster API returned an unexpected error
+      when: >
+        CreateCluster.json is defined and
+        CreateCluster.json.error is defined and
+        CreateCluster.json.error.code is defined and
+        CreateCluster.json.error.code > 390 and
+        CreateCluster.json.error.message is defined and
+        "Cluster already created" not in CreateCluster.json.error.message
+      fail:
+        msg: "Could not create cluster! Msg: {{ CreateCluster.json.error.message }}"
+      no_log: false
 
-        - name: Ensure we wait for the cluster to be operational
-          wait_for:
-            connect_timeout: 5
-            delay: 30
-            host: "{{ MVIP }}"
-            sleep: 10
-            port: 443
-            state: started
-            timeout: "{{ sf_cluster_connect_timeout * 2 }}"
-            msg: "Could not connect to Cluster API for MVIP: {{ MVIP }}"
+    - name: Ensure we wait for the cluster to be operational
+      wait_for:
+        connect_timeout: 5
+        delay: 30
+        host: "{{ MVIP }}"
+        sleep: 10
+        port: 443
+        state: started
+        timeout: "{{ sf_cluster_connect_timeout * 2 }}"
+        msg: "Could not connect to Cluster API for MVIP: {{ MVIP }}"
 
-        - name: Ensure we know the cluster version
-          uri:
-            url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
-            method: POST
-            url_username: "{{ sf_cluster_admin_username }}"
-            url_password: "{{ sf_cluster_admin_passwd }}"
-            force_basic_auth: true
-            follow_redirects: safe
-            force: true
-            timeout: "{{ sf_cluster_connect_timeout * 2 }}"
-            validate_certs: "{{ sf_validate_certs }}"
-            body_format: json
-            body:
-              method: 'GetClusterVersionInfo'
-          register: ver_response
+    - name: Ensure we know the cluster version
+      uri:
+        url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
+        method: POST
+        url_username: "{{ sf_cluster_admin_username }}"
+        url_password: "{{ sf_cluster_admin_passwd }}"
+        force_basic_auth: true
+        follow_redirects: safe
+        force: true
+        timeout: "{{ sf_cluster_connect_timeout * 2 }}"
+        validate_certs: "{{ sf_validate_certs }}"
+        body_format: json
+        body:
+          method: 'GetClusterVersionInfo'
+      register: ver_response
 
-        - name: Ensure we fail if the version info is invalid
-          fail:
-            msg: "Failed to get cluster version info. {{ ver_response.json }}"
-          when: ver_response.json is undefined or ver_response.json.result is undefined or ver_response.json.result.clusterVersion is undefined
+    - name: Ensure we fail if the version info is invalid
+      fail:
+        msg: "Failed to get cluster version info. {{ ver_response.json }}"
+      when: ver_response.json is undefined or ver_response.json.result is undefined or ver_response.json.result.clusterVersion is undefined
 
-        - set_fact:
-            sf_final_cluster_version: "{{ ver_response.json.result.clusterVersion }}"
-            sf_final_status: "success"
+    - set_fact:
+       sf_final_cluster_version: "{{ ver_response.json.result.clusterVersion }}"

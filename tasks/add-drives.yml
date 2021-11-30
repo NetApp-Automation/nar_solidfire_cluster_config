@@ -1,13 +1,12 @@
 ---
 - name: Ensure we found available drives for the cluster
   run_once: true
+  delegate_to: localhost
   block:
     - set_fact:
         sf_available_drives: []
 
     - name: Get list of drives
-      delegate_to: localhost
-      run_once: true
       uri:
         url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
         method: POST
@@ -26,8 +25,6 @@
       no_log: true
 
     - name: Process the available drive list
-      delegate_to: localhost
-      run_once: true
       set_fact:
         sf_available_drives: "{{ sf_available_drives + [{'driveID': drive_entry['driveID'] }] }}"
       when: ListDrives['json'] is defined and
@@ -41,8 +38,6 @@
 
     - name: Ensure available drives have been added
       when: (sf_available_drives | length) > 0
-      delegate_to: localhost
-      run_once: true
       uri:
         url: "https://{{ MVIP }}:443/json-rpc/{{ sf_api_version }}"
         method: POST

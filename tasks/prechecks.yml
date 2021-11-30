@@ -1,27 +1,45 @@
 ---
-- name: Verify all required variables
+- name: Load version check tasks
+  include_role:
+    name: nar_solidfire_sds_compliance
+    tasks_from: check_ansible_version.yml
+
+- name: Ensure we fail if any MIP/SIP is not provided
   any_errors_fatal: True
+  fail:
+    msg: "Please provide management and storage IP addresses for each node"
+  when: MIP is undefined or SIP is undefined
+
+- name: Check Cluster variables
+  run_once: True
   delegate_to: localhost
   block:
-    - name: Ensure we fail if any MIP/SIP is not provided
-      fail:
-        msg: "Please provide management and storage IP addresses for each node"
-      when: MIP is undefined or SIP is undefined
-
     - name: Ensure we fail if any MVIP/SVIP is not provided
       fail:
         msg: "Please provide management and storage IP addresses for the cluster"
       when: MVIP is undefined or SVIP is undefined
 
-    - name: Ensure we fail if the cluster login credetnials is not provided
+    - name: Ensure we fail if the cluster login credentials are not provided
       fail:
         msg: "Please provide sf_cluster_admin_passwd and sf_cluster_admin_username"
       when: sf_cluster_admin_passwd is undefined or sf_cluster_admin_username is undefined
 
-    - name: Ensure we fail if any of the cluster attributes is not provided
+    - name: Ensure we fail if cluster name is not provided
       fail:
-        msg: "Please provide sf_serialnumber, sf_ordernumber and sf_cluster_name"
-      when: sf_serialnumber is undefined or sf_ordernumber is undefined or sf_cluster_name is undefined
+        msg: "Please provide sf_cluster_name"
+      when: sf_cluster_name is undefined
+
+    - name: Ensure we fail if serial number or order number is not provided for eSDS cluster
+      fail:
+        msg: "Please provide sf_serialnumber and sf_ordernumber"
+      when:
+        - ansible_facts.os_family == "RedHat"
+        - sf_serialnumber is undefined or sf_ordernumber is undefined
+
+    - name: Ensure we fail if software encryption is not specified
+      fail:
+        msg: "Please provide a true or false value for sf_enable_sw_encryption in the inventory file"
+      when: sf_enable_sw_encryption is undefined
 
     - name: Ensure we have the host list for the cluster
       set_fact:

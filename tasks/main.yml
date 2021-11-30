@@ -3,16 +3,20 @@
     sf_final_cluster_version: "unknown"
     sf_cluster_member_list: []
 
-- name: Ensure all required variables are available
+- name: Load validation tasks for prerequisites
   include_tasks: prechecks.yml
 
-- name: Ensure we load the set-cluster-name tasks
+- name: Load set-cluster-name tasks
   include_tasks: set-cluster-name.yml
+  args:
+    apply:
+      delegate_to: localhost
+      any_errors_fatal: True
 
-- name: Ensure we load the create-cluster tasks
+- name: Load create-cluster tasks
   include_tasks: create-cluster.yml
 
-- name: Ensure we add all available drives
+- name: Add all available drives if so desired
   when: sf_auto_add_available_drives is undefined or
     (sf_auto_add_available_drives is defined and sf_auto_add_available_drives)
   include_tasks: add-drives.yml

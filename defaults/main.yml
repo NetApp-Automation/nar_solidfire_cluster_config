@@ -5,5 +5,5 @@ sf_cluster_member_list: []
 sf_cluster_connect_timeout: 20
 sf_auto_add_available_drives: true
 sf_use_proxy: true
-sf_validate_certs: true
+sf_validate_certs: false
 sf_api_version: 12.2
